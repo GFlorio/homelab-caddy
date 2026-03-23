@@ -1,0 +1,62 @@
+name: update-caddy-version
+
+on:
+  schedule:
+    - cron: '0 6 * * 1'  # Every Monday at 6am UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Get versions
+        id: versions
+        run: |
+          LATEST=$(curl -s https://api.github.com/repos/caddyserver/caddy/releases/latest \
+            | jq -r '.tag_name | ltrimstr("v")')
+          CURRENT=$(grep -oP '(?<=caddy:)\d+\.\d+\.\d+' Dockerfile | head -1 || echo "none")
+          echo "latest=$LATEST" >> $GITHUB_OUTPUT
+          echo "current=$CURRENT" >> $GITHUB_OUTPUT
+
+      - name: Update Dockerfile
+        id: update
+        if: steps.versions.outputs.current != steps.versions.outputs.latest
+        env:
+          LATEST: ${{ steps.versions.outputs.latest }}
+        run: |
+          sed -i "s|^FROM caddy:[^ ]* AS builder|FROM caddy:${LATEST}-builder AS builder|" Dockerfile
+          sed -i "s|^FROM caddy:[^ ]*$|FROM caddy:${LATEST}|" Dockerfile
+          echo "changed=true" >> $GITHUB_OUTPUT
+
+      - name: Commit and push
+        if: steps.update.outputs.changed == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add Dockerfile
+          git commit -m "chore: bump caddy to ${{ steps.versions.outputs.latest }}"
+          git push
+
+      - name: Login to GHCR
+        if: steps.update.outputs.changed == 'true'
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        if: steps.update.outputs.changed == 'true'
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: |
+            ghcr.io/gflorio/homelab-caddy:latest
+            ghcr.io/gflorio/homelab-caddy:${{ steps.versions.outputs.latest }}

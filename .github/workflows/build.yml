@@ -16,6 +16,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Get Caddy version
+        id: caddy_version
+        run: |
+          VERSION=$(grep -oP '(?<=caddy:)\d+\.\d+\.\d+' Dockerfile | head -1)
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
       - name: Login to GHCR
         uses: docker/login-action@v4
         with:
@@ -30,4 +36,4 @@ jobs:
           push: true
           tags: |
             ghcr.io/gflorio/homelab-caddy:latest
-            ghcr.io/gflorio/homelab-caddy:${{ github.sha }}
+            ghcr.io/gflorio/homelab-caddy:${{ steps.caddy_version.outputs.version }}
