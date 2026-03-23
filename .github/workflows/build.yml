@@ -2,7 +2,7 @@ name: build-and-push-caddy
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "master" ]
     tags: [ "v*" ]
 
 permissions:
@@ -29,5 +29,5 @@ jobs:
           context: .
           push: true
           tags: |
-            ghcr.io/${{ github.repository_owner }}/homelab-caddy:latest
-            ghcr.io/${{ github.repository_owner }}/homelab-caddy:${{ github.sha }}
+            ghcr.io/gflorio/homelab-caddy:latest
+            ghcr.io/gflorio/homelab-caddy:${{ github.sha }}
